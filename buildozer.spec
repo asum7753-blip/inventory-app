@@ -4,7 +4,7 @@ title = Inventory App
 package.name = inventoryapp
 package.domain = org.example
 
-source.dir = .
+source.dir = نظام المحاسب المحترف
 source.include_exts = py,png,jpg,kv,atlas,json,db,sqlite
 
 version = 0.1
