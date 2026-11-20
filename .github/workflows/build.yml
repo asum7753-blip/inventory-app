@@ -1,4 +1,4 @@
-name: Build HTML WebView APK
+Could notname: Build HTML WebView APK
 
 on:
   push:
@@ -41,6 +41,11 @@ jobs:
           if [ -d "نظام المحاسب المحترف" ]; then
             cp -r "نظام المحاسب المحترف/"* webview-app/app/src/main/assets/ 2>/dev/null || true
           fi
+
+          cat << 'EOF' > webview-app/gradle.properties
+          android.useAndroidX=true
+          android.enableJetifier=true
+          EOF
 
           cat << 'EOF' > webview-app/settings.gradle
           rootProject.name = "ERP Pro"
@@ -137,6 +142,7 @@ jobs:
           EOF
 
           cd webview-app
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
           chmod +x gradlew 2>/dev/null || true
           gradle assembleDebug --no-daemon
 
