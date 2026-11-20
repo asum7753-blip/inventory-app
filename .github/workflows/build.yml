@@ -1,6 +1,5 @@
 name: Build HTML WebView APK
 
-
 on:
   push:
     branches: [ main, master ]
@@ -45,7 +44,7 @@ jobs:
 
           cat << 'EOF' > webview-app/gradle.properties
           android.useAndroidX=true
-          android.enableJetifier=true
+          org.gradle.jvmargs=-Xmx2048m
           EOF
 
           cat << 'EOF' > webview-app/settings.gradle
@@ -60,7 +59,7 @@ jobs:
               mavenCentral()
             }
             dependencies {
-              classpath 'com.android.tools.build:gradle:8.2.2'
+              classpath 'com.android.tools.build:gradle:8.5.2'
             }
           }
           allprojects {
@@ -89,6 +88,10 @@ jobs:
               release {
                 minifyEnabled false
               }
+            }
+            compileOptions {
+              sourceCompatibility JavaVersion.VERSION_17
+              targetCompatibility JavaVersion.VERSION_17
             }
           }
           dependencies {
@@ -144,7 +147,6 @@ jobs:
 
           cd webview-app
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          chmod +x gradlew 2>/dev/null || true
           gradle assembleDebug --no-daemon
 
       - name: Upload APK artifact
