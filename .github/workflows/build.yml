@@ -124,5 +124,79 @@ jobs:
                   settings.setDomStorageEnabled(true);
                   settings.setDatabaseEnabled(true);
                   settings.setAllowFileAccess(true);
-                  settings.setAllowContentAccess(
-                  
+                  settings.setAllowContentAccess(true);
+
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient());
+
+                  webView.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Bypass Login Screen in assets/index.html
+        run: |
+          python3 - << 'EOF'
+          from pathlib import Path
+
+          html_path = Path("app/src/main/assets/index.html")
+          if html_path.exists():
+              text = html_path.read_text(encoding="utf-8")
+              bypass_script = """
+          <script>
+          function unlockAccountingApp() {
+            var loginScreen = document.getElementById("loginScreen");
+            if (loginScreen) {
+              loginScreen.style.display = "none";
+              loginScreen.classList.add("hidden");
+            }
+            var morningModal = document.getElementById("morningModal");
+            if (morningModal) {
+              morningModal.style.display = "none";
+              morningModal.classList.add("hidden");
+            }
+            var hiddenEls = document.querySelectorAll(".hidden");
+            for (var i = 0; i < hiddenEls.length; i++) {
+              var el = hiddenEls[i];
+              if (el.id !== "loginScreen" && el.id !== "morningModal") {
+                el.classList.remove("hidden");
+              }
+            }
+          }
+          document.addEventListener("DOMContentLoaded", unlockAccountingApp);
+          window.addEventListener("load", unlockAccountingApp);
+          window.login = function() {
+            unlockAccountingApp();
+          };
+          </script>
+          """
+              if "</body>" in text:
+                  text = text.replace("</body>", bypass_script + "\n</body>", 1)
+              else:
+                  text += bypass_script
+              html_path.write_text(text, encoding="utf-8")
+          EOF
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-pro-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          
