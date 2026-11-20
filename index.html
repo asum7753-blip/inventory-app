@@ -1,4 +1,155 @@
-      - name: Bypass login screen in index.html
+name: Build Android APK
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Generate Android Project Structure
+        run: |
+          mkdir -p app/src/main/java/com/example/inventory
+          mkdir -p app/src/main/assets
+          mkdir -p app/src/main/res/values
+          mkdir -p app/src/main/res/mipmap-hdpi
+
+          # Copy index.html to assets
+          cp index.html app/src/main/assets/index.html
+
+          # Create build.gradle (root)
+          cat << 'EOF' > build.gradle
+          buildscript {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+              dependencies {
+                  classpath 'com.android.tools.build:gradle:8.2.2'
+              }
+          }
+          allprojects {
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          EOF
+
+          # Create settings.gradle
+          echo "include ':app'" > settings.gradle
+
+          # Create app/build.gradle
+          cat << 'EOF' > app/build.gradle
+          apply plugin: 'com.android.application'
+
+          android {
+              namespace 'com.example.inventory'
+              compileSdk 34
+
+              defaultConfig {
+                  applicationId "com.example.inventory"
+                  minSdk 24
+                  targetSdk 34
+                  versionCode 1
+                  versionName "1.0"
+              }
+
+              buildTypes {
+                  release {
+                      minifyEnabled false
+                  }
+              }
+          }
+
+          dependencies {
+              implementation 'androidx.appcompat:appcompat:1.6.1'
+              implementation 'com.google.android.material:material:1.11.0'
+          }
+          EOF
+
+          # Create AndroidManifest.xml
+          cat << 'EOF' > app/src/main/AndroidManifest.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:allowBackup="true"
+                  android:label="ERP Pro"
+                  android:supportsRtl="true"
+                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  <activity
+                      android:name=".MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          # Create MainActivity.java with ChromeClient support for WebView
+          cat << 'EOF' > app/src/main/java/com/example/inventory/MainActivity.java
+          package com.example.inventory;
+
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          import androidx.appcompat.app.AppCompatActivity;
+
+          public class MainActivity extends AppCompatActivity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  setContentView(webView);
+
+                  WebSettings settings = webView.getSettings();
+                  settings.setJavaScriptEnabled(true);
+                  settings.setDomStorageEnabled(true);
+                  settings.setDatabaseEnabled(true);
+                  settings.setAllowFileAccess(true);
+                  settings.setAllowContentAccess(true);
+
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.setWebChromeClient(new WebChromeClient());
+
+                  webView.loadUrl("file:///android_asset/index.html");
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView.canGoBack()) {
+                      webView.goBack();
+                  } else {
+                      super.onBackPressed();
+                  }
+              }
+          }
+          EOF
+
+      - name: Bypass Login Screen in assets/index.html
         run: |
           python3 - << 'EOF'
           from pathlib import Path
@@ -7,37 +158,51 @@
           if html_path.exists():
               text = html_path.read_text(encoding="utf-8")
               bypass_script = """
-<script>
-window.addEventListener("DOMContentLoaded", function() {
-  const loginScreen = document.getElementById("loginScreen");
-  if (loginScreen) {
-    loginScreen.style.display = "none";
-    loginScreen.classList.add("hidden");
-  }
-  document.querySelectorAll(".hidden").forEach(el => {
-    if (el.id !== "loginScreen") {
-      el.classList.remove("hidden");
-    }
-  });
-});
-window.login = function() {
-  const loginScreen = document.getElementById("loginScreen");
-  if (loginScreen) {
-    loginScreen.style.display = "none";
-    loginScreen.classList.add("hidden");
-  }
-  document.querySelectorAll(".hidden").forEach(el => {
-    if (el.id !== "loginScreen") {
-      el.classList.remove("hidden");
-    }
-  });
-};
-</script>
-"""
+          <script>
+          window.addEventListener("DOMContentLoaded", function() {
+            const loginScreen = document.getElementById("loginScreen");
+            if (loginScreen) {
+              loginScreen.style.display = "none";
+              loginScreen.classList.add("hidden");
+            }
+            document.querySelectorAll(".hidden").forEach(el => {
+              if (el.id !== "loginScreen") {
+                el.classList.remove("hidden");
+              }
+            });
+          });
+          window.login = function() {
+            const loginScreen = document.getElementById("loginScreen");
+            if (loginScreen) {
+              loginScreen.style.display = "none";
+              loginScreen.classList.add("hidden");
+            }
+            document.querySelectorAll(".hidden").forEach(el => {
+              if (el.id !== "loginScreen") {
+                el.classList.remove("hidden");
+              }
+            });
+          };
+          </script>
+          """
               if "</body>" in text:
                   text = text.replace("</body>", bypass_script + "\n</body>", 1)
               else:
                   text += bypass_script
               html_path.write_text(text, encoding="utf-8")
           EOF
-              
+
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v3
+        with:
+          gradle-version: 8.5
+
+      - name: Build Debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp-pro-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+                
