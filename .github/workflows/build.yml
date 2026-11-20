@@ -18,11 +18,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Create WebView Android project and build APK
         run: |
+          export ANDROID_HOME=/usr/local/lib/android/sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            curl -sSL https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -o cmdline-tools.zip
+            unzip -q cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          fi
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses >/dev/null || true
+          $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+
           mkdir -p webview-app/app/src/main/java/com/erp/pro
           mkdir -p webview-app/app/src/main/res/layout
           mkdir -p webview-app/app/src/main/assets
