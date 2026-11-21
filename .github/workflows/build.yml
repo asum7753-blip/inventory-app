@@ -28,9 +28,18 @@ jobs:
           mkdir -p app/src/main/java/com/example/inventory
           mkdir -p app/src/main/assets
           mkdir -p app/src/main/res/values
-          mkdir -p app/src/main/res/mipmap-hdpi
 
-          cp index.html app/src/main/assets/index.html
+          if [ -f "index.html" ]; then
+            cp index.html app/src/main/assets/index.html
+          else
+            HTML_FILE=$(find . -maxdepth 3 -name "*.html" | head -n 1)
+            if [ -n "$HTML_FILE" ]; then
+              cp "$HTML_FILE" app/src/main/assets/index.html
+            else
+              echo "No HTML file found in repository"
+              exit 1
+            fi
+          fi
 
           cat << 'EOF' > build.gradle
           buildscript {
@@ -80,6 +89,13 @@ jobs:
           }
           EOF
 
+          cat << 'EOF' > app/src/main/res/values/styles.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar" />
+          </resources>
+          EOF
+
           cat << 'EOF' > app/src/main/AndroidManifest.xml
           <?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
@@ -88,7 +104,7 @@ jobs:
                   android:allowBackup="true"
                   android:label="ERP Pro"
                   android:supportsRtl="true"
-                  android:theme="@style/Theme.AppCompat.Light.NoActionBar">
+                  android:theme="@style/AppTheme">
                   <activity
                       android:name=".MainActivity"
                       android:exported="true">
@@ -151,7 +167,7 @@ jobs:
 
           html_path = Path("app/src/main/assets/index.html")
           if html_path.exists():
-              text = html_path.read_text(encoding="utf-8")
+              text = html_path.read_text(encoding="utf-8", errors="ignore")
               bypass_script = """
           <script>
           function unlockAccountingApp() {
@@ -193,7 +209,7 @@ jobs:
           gradle-version: 8.5
 
       - name: Build Debug APK
-        run: gradle assembleDebug
+        run: gradle assembleDebug --stacktrace
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
